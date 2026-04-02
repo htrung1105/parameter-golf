@@ -177,6 +177,10 @@ scp -P PORT .\remote_setup.sh root@HOST:/workspace/remote_setup.sh
 
 ```bash
 # Remote
+export PATH=/opt/conda/bin:$PATH
+
+tmux new -s train
+
 cd /workspace
 
 chmod +x remote_setup.sh
@@ -192,6 +196,8 @@ scp -P PORT .\train_gpt.py root@HOST:/workspace/parameter-golf/train_gpt.py
 
 scp -P PORT .\runpod_1gpu.sh root@HOST:/workspace/parameter-golf/runpod_1gpu.sh
 
+scp -P PORT .\runpod_2gpu.sh root@HOST:/workspace/parameter-golf/runpod_2gpu.sh
+
 scp -P PORT .\runpod_8gpu.sh root@HOST:/workspace/parameter-golf/runpod_8gpu.sh
 ```
 
@@ -199,7 +205,10 @@ scp -P PORT .\runpod_8gpu.sh root@HOST:/workspace/parameter-golf/runpod_8gpu.sh
 # Remote
 cd parameter-golf
 
-chmod +x runpod_1gpu.sh
+chmod +x runpod_2gpu.sh
 
-bash runpod_1gpu.sh
+bash runpod_2gpu.sh
+
+# If disconnect
+tmux attach -t train
 ```

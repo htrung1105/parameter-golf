@@ -1,0 +1,61 @@
+{
+  "active_context": [
+    {
+      "order": 3,
+      "path": "_index.md",
+      "tokens": 1410,
+      "type": "summary"
+    },
+    {
+      "importance": 50,
+      "path": "README.md",
+      "tokens": 2,
+      "type": "context"
+    },
+    {
+      "importance": 50,
+      "path": "training/context.md",
+      "tokens": 158,
+      "type": "context"
+    },
+    {
+      "importance": 50,
+      "path": "training/parameter_golf/architecture_snapshot.md",
+      "tokens": 640,
+      "type": "context"
+    },
+    {
+      "importance": 50,
+      "path": "training/parameter_golf/context.md",
+      "tokens": 113,
+      "type": "context"
+    },
+    {
+      "importance": 50,
+      "path": "training/parameter_golf/execution_next_steps_and_submission_criteria.md",
+      "tokens": 1017,
+      "type": "context"
+    },
+    {
+      "importance": 50,
+      "path": "training/parameter_golf/project_snapshot.md",
+      "tokens": 495,
+      "type": "context"
+    },
+    {
+      "importance": 50,
+      "path": "training/parameter_golf/remote_gpu_setup_config.md",
+      "tokens": 979,
+      "type": "context"
+    }
+  ],
+  "generated_at": "2026-04-01T07:53:07.261Z",
+  "lane_tokens": {
+    "contexts": 3404,
+    "stubs": 0,
+    "summaries": 1410
+  },
+  "source_fingerprint": "5b9a35b705f7bc8ecdf10c08d14fe0c94f462c116456d2043a776b7ffb040be9",
+  "total_tokens": 4814,
+  "version": 1
+}

@@ -82,8 +82,6 @@ class H:
     ttt_batch_seqs=int(os.environ.get("TTT_BATCH_SEQS",32))
     ttt_grad_clip=float(os.environ.get("TTT_GRAD_CLIP",1.0))
     torch_compile=bool(int(os.environ.get("TORCH_COMPILE","1")))
-    lr_warmup_steps=int(os.environ.get("LR_WARMUP_STEPS",50))
-    ema_start_frac=float(os.environ.get("EMA_START_FRAC",0.4))
 
 CTRL=tuple(p for p in os.environ.get("CONTROL_TENSOR_NAME_PATTERNS",
     "attn_scale,mlp_scale,resid_mix,q_gain,skip_weight,smear,attn_gate,vr_lambda,ve_layer_scales,ve_shared.scale").split(",") if p)
@@ -514,8 +512,8 @@ class GPT(nn.Module):
         lp=F.linear(x,self.tok_emb.weight) if self.tie else self.lm_head(x)
         return self.lsc*torch.tanh(lp/self.lsc)
 
-def eval_val(args,model,rank,ws,dev,vt,bbl,hsl,ibl,esl=None):
-    sl=esl or args.train_seq_len;lbt=args.val_batch_size//ws
+def eval_val(args,model,rank,ws,dev,gas,vt,bbl,hsl,ibl,esl=None):
+    sl=esl or args.train_seq_len;lbt=args.val_batch_size//(ws*gas)
     if lbt<sl:raise ValueError("VAL_BATCH_SIZE too small")
     lbs=lbt//sl;ts=(vt.numel()-1)//sl;ss=(ts*rank)//ws;se=(ts*(rank+1))//ws
     ls=torch.zeros((),device=dev,dtype=torch.float64);tc=torch.zeros((),device=dev,dtype=torch.float64)
@@ -800,15 +798,12 @@ def main():
         for o in opts:o.zero_grad(set_to_none=True)
     mwms=1000.*args.max_wallclock_seconds if args.max_wallclock_seconds>0 else None
     def lr_m(step,ems):
-        wu=min(step/max(args.lr_warmup_steps,1),1.) if args.lr_warmup_steps>0 else 1.
-        if args.warmdown_iters<=0:return wu
+        if args.warmdown_iters<=0:return 1.
         if mwms is None:
             wds=max(args.iterations-args.warmdown_iters,0)
-            wd=max((args.iterations-step)/max(args.warmdown_iters,1),0.) if wds<=step<args.iterations else 1.
-        else:
-            sms=ems/max(step,1);wdms=args.warmdown_iters*sms;rms=max(mwms-ems,0.)
-            wd=rms/max(wdms,1e-9) if rms<=wdms else 1.
-        return wu*wd
+            return max((args.iterations-step)/max(args.warmdown_iters,1),0.) if wds<=step<args.iterations else 1.
+        sms=ems/max(step,1);wdms=args.warmdown_iters*sms;rms=max(mwms-ems,0.)
+        return rms/max(wdms,1e-9) if rms<=wdms else 1.
     if args.warmup_steps>0:
         isd={n:t.detach().cpu().clone() for n,t in bm.state_dict().items()}
         ios=[copy.deepcopy(o.state_dict()) for o in opts]
@@ -825,24 +820,24 @@ def main():
             for o in opts:o.step()
             zg()
         bm.load_state_dict(isd,strict=True)
-        # Keep optimizer momentum buffers from warmup (don't restore optimizer state)
+        for o,s in zip(opts,ios):o.load_state_dict(s)
         zg();tl=DTokenLoader(args.train_files,rank,ws,dev)
     swa_s=None;swa_c=0
-    ema_s=None;ema_d=0.997;ema_started=False
-    ttms=0.;atms=0.;stop=None;torch.cuda.synchronize();t0=time.perf_counter();step=0
+    ema_s={n:t.detach().float().clone() for n,t in bm.state_dict().items()};ema_d=0.997
+    ttms=0.;stop=None;torch.cuda.synchronize();t0=time.perf_counter();step=0
     while True:
         last=step==args.iterations or(stop is not None and step>=stop)
         sv=last or(args.val_loss_every>0 and step%args.val_loss_every==0)
         if sv:
             torch.cuda.synchronize();ttms+=1000.*(time.perf_counter()-t0)
-            vl,vb=eval_val(args,model,rank,ws,dev,vt,bbl,hsl,ibl)
+            vl,vb=eval_val(args,model,rank,ws,dev,gas,vt,bbl,hsl,ibl)
             log0(f"step:{step}/{args.iterations} val_loss:{vl:.4f} val_bpb:{vb:.4f} t:{ttms:.0f}ms avg:{ttms/max(step,1):.2f}ms")
             torch.cuda.synchronize();t0=time.perf_counter()
         if last:
             if stop is not None and step<args.iterations:log0(f"early_stop step:{step}")
             break
         ems=ttms+1000.*(time.perf_counter()-t0);sc=lr_m(step,ems)
-        if args.late_qat_threshold>0 and sc<args.late_qat_threshold and step>args.lr_warmup_steps and not CL._qat:
+        if args.late_qat_threshold>0 and sc<args.late_qat_threshold and not CL._qat:
             CL._qat=True;log0(f"qat:on step:{step} sc:{sc:.4f}")
         zg();trl=torch.zeros((),device=dev)
         for _ in range(gas):
@@ -864,11 +859,7 @@ def main():
         if ohd:ohd.step()
         omu.step();zg()
         with torch.no_grad():
-            ema_frac=args.ema_start_frac;est=int(ema_frac*(args.iterations if mwms is None else atms/(max(atms/max(step,1),1e-9))))
-            if not ema_started and step>=max(est,10):
-                ema_s={n:t.detach().float().clone() for n,t in bm.state_dict().items()};ema_started=True
-            elif ema_started:
-                for n,t in bm.state_dict().items():ema_s[n].mul_(ema_d).add_(t.detach().float(),alpha=1.-ema_d)
+            for n,t in bm.state_dict().items():ema_s[n].mul_(ema_d).add_(t.detach().float(),alpha=1.-ema_d)
         step+=1;atms=ttms+1000.*(time.perf_counter()-t0)
         if args.swa_enabled and sc<0.2 and step%args.swa_every==0:
             if swa_s is None:swa_s={n:t.detach().cpu().clone() for n,t in bm.state_dict().items()};swa_c=1;log0(f"swa:start step:{step}")
@@ -882,33 +873,11 @@ def main():
             rt=torch.tensor(int(rc),device=dev);dist.all_reduce(rt,op=dist.ReduceOp.MAX);rc=bool(rt.item())
         if stop is None and rc:stop=step
     log0(f"peak_mem:{torch.cuda.max_memory_allocated()//1024//1024}MiB")
-    # Save raw model for comparison
-    raw_sd={n:t.detach().cpu().clone() for n,t in bm.state_dict().items()}
+    log0("ema:applying");cs=bm.state_dict()
+    avg={n:t.to(dtype=cs[n].dtype) for n,t in ema_s.items()};bm.load_state_dict(avg,strict=True)
     torch.cuda.synchronize();td=time.perf_counter()
-    raw_vl,raw_vb=eval_val(args,cm,rank,ws,dev,vt,bbl,hsl,ibl)
-    log0(f"raw_model val_loss:{raw_vl:.4f} val_bpb:{raw_vb:.4f} t:{1000.*(time.perf_counter()-td):.0f}ms")
-    best_vb=raw_vb;best_src="raw"
-    # Try EMA
-    if ema_started and ema_s is not None:
-        cs=bm.state_dict();avg={n:t.to(dtype=cs[n].dtype) for n,t in ema_s.items()}
-        bm.load_state_dict(avg,strict=True)
-        torch.cuda.synchronize();td=time.perf_counter()
-        dvl,dvb=eval_val(args,cm,rank,ws,dev,vt,bbl,hsl,ibl)
-        log0(f"post_ema val_loss:{dvl:.4f} val_bpb:{dvb:.4f} t:{1000.*(time.perf_counter()-td):.0f}ms")
-        if dvb<best_vb:best_vb=dvb;best_src="ema"
-        else:bm.load_state_dict(raw_sd,strict=True);log0("ema:worse, reverting to raw")
-    else:log0("ema:not started (training too short)")
-    # Try SWA
-    if swa_s is not None and swa_c>1:
-        swa_avg={n:(t/swa_c).to(dtype=raw_sd[n].dtype) for n,t in swa_s.items()}
-        swa_sd={n:t.detach().cpu().clone() for n,t in bm.state_dict().items()}
-        bm.load_state_dict(swa_avg,strict=True)
-        torch.cuda.synchronize();td=time.perf_counter()
-        svl,svb=eval_val(args,cm,rank,ws,dev,vt,bbl,hsl,ibl)
-        log0(f"post_swa val_loss:{svl:.4f} val_bpb:{svb:.4f} (n={swa_c}) t:{1000.*(time.perf_counter()-td):.0f}ms")
-        if svb<best_vb:best_vb=svb;best_src="swa";log0("swa:better, using swa")
-        else:bm.load_state_dict(swa_sd,strict=True);log0(f"swa:worse ({svb:.4f}>{best_vb:.4f}), keeping {best_src}")
-    log0(f"best_model:{best_src} val_bpb:{best_vb:.4f}")
+    dvl,dvb=eval_val(args,cm,rank,ws,dev,gas,vt,bbl,hsl,ibl)
+    log0(f"post_ema val_loss:{dvl:.4f} val_bpb:{dvb:.4f} t:{1000.*(time.perf_counter()-td):.0f}ms")
     esd={k:v for k,v in bm.state_dict().items()}
     sdcpu={k:v.detach().cpu() for k,v in esd.items()}
     ubsd=_unbank(sdcpu,args.num_layers)
@@ -923,7 +892,7 @@ def main():
     if distributed:dist.barrier()
     # Roundtrip validation
     with open("final_model.int8.ptz","rb") as f:qbd=f.read()
-    qs=torch.load(io.BytesIO(zlib.decompress(qbd)),map_location="cpu",weights_only=False)
+    qs=torch.load(io.BytesIO(zlib.decompress(qbd)),map_location="cpu")
     dqu=dq6(qs["w"],qs["m"],ubsd);dqs=_rebank(dqu,args.num_layers,sdcpu)
     em=GPT(args).to(dev).bfloat16()
     em.qo_bank.data=em.qo_bank.data.float();em.kv_bank.data=em.kv_bank.data.float()
@@ -933,26 +902,23 @@ def main():
     fix_fp32(em);em.load_state_dict(dqs,strict=True)
     cem=torch.compile(em,dynamic=False,fullgraph=True) if args.torch_compile else em
     torch.cuda.synchronize();tq=time.perf_counter()
-    qvl,qvb=eval_val(args,cem,rank,ws,dev,vt,bbl,hsl,ibl,esl=esl)
+    qvl,qvb=eval_val(args,cem,rank,ws,dev,gas,vt,bbl,hsl,ibl,esl=esl)
     log0(f"int6_roundtrip val_loss:{qvl:.4f} val_bpb:{qvb:.4f} t:{1000.*(time.perf_counter()-tq):.0f}ms")
     log0(f"int6_roundtrip_exact val_loss:{qvl:.8f} val_bpb:{qvb:.8f}")
-    # Also try int8+zlib and pick best that fits
+    # Also save int8+zlib for official scoring
     qi8,_=quantize_state_dict_int8(ubsd)
     q8buf=io.BytesIO();torch.save(qi8,q8buf);q8raw=q8buf.getvalue()
     q8blob=zlib.compress(q8raw,9)
-    cb=len(code.encode("utf-8"))
-    i6tot=cb+len(qblob);i8tot=cb+len(q8blob)
-    log0(f"int6_zlib code:{cb} model:{len(qblob)} total:{i6tot} limit:16000000 {'OK' if i6tot<=16000000 else 'OVER!'}")
-    log0(f"int8_zlib code:{cb} model:{len(q8blob)} total:{i8tot} limit:16000000 {'OK' if i8tot<=16000000 else 'OVER!'}")
-    # Pick: prefer fit within 16MB, then prefer smaller
-    if i6tot<=16000000 and i8tot<=16000000:
-        use_blob=qblob if len(qblob)<=len(q8blob) else q8blob
-        log0(f"both fit, using {'int6' if len(qblob)<=len(q8blob) else 'int8'} (smaller)")
-    elif i6tot<=16000000:use_blob=qblob;log0("using int6 (int8 over limit)")
-    elif i8tot<=16000000:use_blob=q8blob;log0("using int8 (int6 over limit)")
-    else:use_blob=qblob if len(qblob)<=len(q8blob) else q8blob;log0("WARNING: both over 16MB!")
     if mp:
-        with open("final_model.int8.ptz","wb") as f:f.write(use_blob)
+        with open("final_model.int8.ptz","wb") as f:f.write(q8blob)
+        cb=len(code.encode("utf-8"));mb=len(q8blob);tot=cb+mb
+        log0(f"int8_zlib code:{cb} model:{mb} total:{tot} limit:16000000 {'OK' if tot<=16000000 else 'OVER!'}")
+        # Use whichever is smaller - int6 or int8
+        if len(qblob)<len(q8blob):
+            log0("using int6 (smaller)")
+            with open("final_model.int8.ptz","wb") as f:f.write(qblob)
+        else:
+            log0("using int8 (smaller)")
     if distributed:dist.barrier()
     # Sliding window eval
     swsl=esl
@@ -971,3 +937,44 @@ def main():
 
 if __name__=="__main__":
     main()
+
+================================================================================
+PyTorch 2.5.1+cu121
+params:27890891 ws:1 gas:8
+step:0/3000 val_loss:6.9262 val_bpb:4.1021 t:0ms avg:0.02ms
+step:1/3000 loss:6.9290 t:424ms avg:424.46ms
+step:2/3000 loss:8.6859 t:765ms avg:382.31ms
+step:3/3000 loss:7.3785 t:1122ms avg:374.07ms
+step:4/3000 loss:8.2071 t:1480ms avg:370.10ms
+step:5/3000 loss:8.7390 t:1865ms avg:373.03ms
+step:6/3000 loss:8.4158 t:2214ms avg:368.99ms
+step:7/3000 loss:7.5052 t:2564ms avg:366.23ms
+step:8/3000 loss:6.9600 t:3000ms avg:375.04ms
+step:9/3000 loss:6.6288 t:3351ms avg:372.34ms
+step:10/3000 loss:6.3299 t:3699ms avg:369.90ms
+step:100/3000 loss:3.4927 t:36115ms avg:361.15ms
+step:200/3000 loss:2.8994 t:73052ms avg:365.26ms
+step:300/3000 loss:2.7321 t:109632ms avg:365.44ms
+step:400/3000 loss:2.7100 t:146280ms avg:365.70ms
+step:500/3000 loss:2.5899 t:182799ms avg:365.60ms
+step:600/3000 loss:2.5173 t:219479ms avg:365.80ms
+step:700/3000 loss:2.6161 t:256178ms avg:365.97ms
+step:800/3000 loss:2.5096 t:292720ms avg:365.90ms
+step:900/3000 loss:2.4523 t:329426ms avg:366.03ms
+swa:start step:950
+qat:on step:997 sc:0.1498
+step:1000/3000 loss:2.3997 t:366227ms avg:366.23ms
+step:1000/3000 val_loss:2.3899 val_bpb:1.4154 t:366350ms avg:366.35ms
+step:1100/3000 loss:2.3995 t:403306ms avg:366.64ms
+step:1146/3000 val_loss:2.3572 val_bpb:1.3961 t:420301ms avg:366.75ms
+early_stop step:1146
+peak_mem:4514MiB
+ema:applying
+post_ema val_loss:2.4391 val_bpb:1.4446 t:59720ms
+code:49387 model:14961227 total:15010614 limit:16000000 OK
+int6_roundtrip val_loss:2.4456 val_bpb:1.4484 t:113723ms
+int6_roundtrip_exact val_loss:2.44563052 val_bpb:1.44844015
+int8_zlib code:49387 model:20832527 total:20881914 limit:16000000 OVER!
+using int6 (smaller)
+sliding val_loss:2.4010 val_bpb:1.4220 stride:128 t:1063980ms
+final_int8_zlib_roundtrip_exact val_loss:2.40104823 val_bpb:1.42203781

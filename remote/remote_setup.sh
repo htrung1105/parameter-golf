@@ -10,8 +10,6 @@ echo " Parameter Golf Remote Setup"
 echo "=============================="
 
 # 1. Install system dependencies (gcc needed for torch.compile/Triton)
-export PATH=/opt/conda/bin:$PATH
-
 echo ""
 echo "[1/5] Installing system dependencies..."
 apt-get update -qq
@@ -28,6 +26,13 @@ if ! command -v git &> /dev/null; then
     echo "git installed"
 else
     echo "git already available"
+fi
+
+if ! command -v tmux &> /dev/null; then
+    apt-get install -y -qq tmux > /dev/null 2>&1
+    echo "tmux installed (use to prevent SSH disconnect kills)"
+else
+    echo "tmux already available"
 fi
 
 # 2. System info
@@ -72,12 +77,20 @@ echo ""
 echo "Next: Upload train_gpt.py and run scripts"
 echo "  scp -P PORT train_gpt.py root@HOST:/workspace/parameter-golf/"
 echo "  scp -P PORT runpod_1gpu.sh root@HOST:/workspace/parameter-golf/"
+echo "  scp -P PORT runpod_2gpu.sh root@HOST:/workspace/parameter-golf/"
 echo "  scp -P PORT runpod_8gpu.sh root@HOST:/workspace/parameter-golf/"
+echo ""
 echo "Usage:"
 echo "  cd parameter-golf"
-echo "  # -- Test train --"
+echo ""
+echo "  # -- Test train 1xGPU --"
 echo "  chmod +x runpod_1gpu.sh"
-echo "  bash runpod_1gpu.sh 1"
+echo "  bash runpod_1gpu.sh"
+echo ""
+echo "  # -- Test train 2xGPU --"
+echo "  chmod +x runpod_2gpu.sh"
+echo "  bash runpod_2gpu.sh"
+echo ""
 echo "  # -- Full train --"
 echo "  chmod +x runpod_8gpu.sh"
-echo "  bash runpod_8gpu.sh 80"
+echo "  bash runpod_8gpu.sh"

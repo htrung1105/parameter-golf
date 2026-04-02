@@ -1,0 +1,34 @@
+{
+  "createdAt": "2026-04-01T19:47:41.269Z",
+  "files": {
+    "training/context.md": {
+      "hash": "c2cc02bb63fd43f32fb1a9ee94ce3950f85c23eaffbf1780dbbc667a4fe0c885",
+      "size": 633
+    },
+    "training/parameter_golf/architecture_snapshot.md": {
+      "hash": "42c660759302f0e691ef10e7c445027340333b8b5b389208dd5bab6b03054784",
+      "size": 2561
+    },
+    "training/parameter_golf/execution_next_steps_and_submission_criteria.md": {
+      "hash": "091895660400feace66275e07ea787370a80449060d7afb6de00460c21519c1d",
+      "size": 4067
+    },
+    "training/parameter_golf/context.md": {
+      "hash": "3769f18ec63d3c080b2da61b546eb83fb7af8469aca643202d1d847afa9d1b23",
+      "size": 452
+    },
+    "training/parameter_golf/project_snapshot.md": {
+      "hash": "bee9ec86f39e355ff922245934f1cfc2caf2c09cdcb54b76e59fdc25c2f662a6",
+      "size": 1978
+    },
+    "training/parameter_golf/remote_gpu_setup_config.md": {
+      "hash": "852c4c25550531b6d66503791f15c4c2a2bcaa127a2eb1c484267ab09c59ce1a",
+      "size": 3914
+    },
+    "training/parameter_golf/train_gpt_bugfix_benchmark_update.md": {
+      "hash": "f0a71733cca1e31d9d3ab2939974babf1b8c1bd8b76558cf04e7bb7007fa27b1",
+      "size": 2554
+    }
+  },
+  "version": 1
+}

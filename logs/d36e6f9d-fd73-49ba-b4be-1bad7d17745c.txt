@@ -842,7 +842,7 @@ def main():
             if stop is not None and step<args.iterations:log0(f"early_stop step:{step}")
             break
         ems=ttms+1000.*(time.perf_counter()-t0);sc=lr_m(step,ems)
-        if args.late_qat_threshold>0 and sc<args.late_qat_threshold and step>args.lr_warmup_steps and not CL._qat:
+        if args.late_qat_threshold>0 and sc<args.late_qat_threshold and not CL._qat:
             CL._qat=True;log0(f"qat:on step:{step} sc:{sc:.4f}")
         zg();trl=torch.zeros((),device=dev)
         for _ in range(gas):
@@ -971,3 +971,51 @@ def main():
 
 if __name__=="__main__":
     main()
+
+================================================================================
+PyTorch 2.9.1+cu128
+params:27890891 ws:1 gas:8
+step:0/5000 val_loss:6.9269 val_bpb:4.1025 t:0ms avg:0.02ms
+qat:on step:0 sc:0.0000
+step:1/5000 loss:6.9297 t:666ms avg:666.42ms
+step:2/5000 loss:6.9272 t:1266ms avg:632.92ms
+step:3/5000 loss:6.9074 t:1911ms avg:637.13ms
+step:4/5000 loss:6.8344 t:2558ms avg:639.43ms
+step:5/5000 loss:6.6881 t:3204ms avg:640.83ms
+step:6/5000 loss:6.4550 t:3851ms avg:641.76ms
+step:7/5000 loss:6.1597 t:4497ms avg:642.43ms
+step:8/5000 loss:5.9295 t:5143ms avg:642.93ms
+step:9/5000 loss:5.8247 t:5790ms avg:643.33ms
+step:10/5000 loss:5.7906 t:6437ms avg:643.66ms
+step:100/5000 loss:3.3896 t:65291ms avg:652.91ms
+step:200/5000 loss:2.9516 t:131512ms avg:657.56ms
+step:300/5000 loss:2.5933 t:197786ms avg:659.29ms
+step:400/5000 loss:2.5647 t:264605ms avg:661.51ms
+step:500/5000 loss:2.5109 t:330820ms avg:661.64ms
+step:600/5000 loss:2.4267 t:397068ms avg:661.78ms
+step:700/5000 loss:2.4008 t:463358ms avg:661.94ms
+step:800/5000 loss:2.3812 t:529707ms avg:662.13ms
+step:900/5000 loss:2.2291 t:596070ms avg:662.30ms
+step:1000/5000 loss:2.3189 t:662756ms avg:662.76ms
+step:1000/5000 val_loss:2.3015 val_bpb:1.3630 t:662777ms avg:662.78ms
+swa:start step:1100
+step:1100/5000 loss:2.3007 t:729145ms avg:662.86ms
+step:1200/5000 loss:2.2689 t:796635ms avg:663.86ms
+step:1300/5000 loss:2.1751 t:863987ms avg:664.61ms
+step:1353/5000 val_loss:2.2317 val_bpb:1.3217 t:900321ms avg:665.43ms
+early_stop step:1353
+peak_mem:8099MiB
+raw_model val_loss:2.2317 val_bpb:1.3217 t:61494ms
+post_ema val_loss:2.2676 val_bpb:1.3430 t:61518ms
+ema:worse, reverting to raw
+post_swa val_loss:2.2331 val_bpb:1.3226 (n=6) t:61500ms
+swa:worse (1.3226>1.3217), keeping raw
+best_model:raw val_bpb:1.3217
+code:51714 model:15734558 total:15786272 limit:16000000 OK
+int6_roundtrip val_loss:2.2491 val_bpb:1.3321 t:95039ms
+int6_roundtrip_exact val_loss:2.24911689 val_bpb:1.33205371
+int6_zlib code:51714 model:15734558 total:15786272 limit:16000000 OK
+int8_zlib code:51714 model:21364162 total:21415876 limit:16000000 OVER!
+using int6 (int8 over limit)
+sliding val_loss:2.2080 val_bpb:1.3077 stride:128 t:1055145ms
+final_int8_zlib_roundtrip_exact val_loss:2.20801823 val_bpb:1.30771443
