@@ -30,8 +30,8 @@ fi
 echo ""
 
 # ===================== PRODUCTION CONFIG =====================
-export SEED=1337
-export ITERATIONS=20000
+export SEED=2024
+export ITERATIONS=12000
 export MAX_WALLCLOCK_SECONDS=600  # 10 min hard limit
 
 # Full batch: 786432 tokens, gas=1 on 8 GPUs
@@ -99,7 +99,7 @@ export GRAD_CLIP_NORM=0.3
 export TORCH_COMPILE=1
 
 # Legal TTT — set to 1 to enable after base BPB validated
-export TTT_ENABLED=1
+export TTT_ENABLED=0
 export TTT_LR=0.002
 export TTT_EPOCHS=3
 export TTT_CHUNK_TOKENS=32768
