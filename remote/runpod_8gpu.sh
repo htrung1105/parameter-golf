@@ -31,7 +31,7 @@ echo ""
 
 # ===================== PRODUCTION CONFIG =====================
 export SEED=1337
-export ITERATIONS=12000
+export ITERATIONS=20000
 export MAX_WALLCLOCK_SECONDS=600  # 10 min hard limit
 
 # Full batch: 786432 tokens, gas=1 on 8 GPUs
@@ -48,16 +48,16 @@ export NUM_KV_HEADS=4
 export MLP_MULT=3
 
 # Input representations
-export BIGRAM_VOCAB_SIZE=4096
+export BIGRAM_VOCAB_SIZE=2048
 export BIGRAM_DIM=128
-export TRIGRAM_VOCAB_SIZE=4096
-export TRIGRAM_DIM=128
+# TrigramHash disabled (saves ~590K params)
+export TRIGRAM_VOCAB_SIZE=0
 
 # Attention features
 export XSA_LAST_N=4
 export ROPE_DIMS=16
-export GATED_ATTENTION=1
-export VALUE_RESIDUAL=1
+export GATED_ATTENTION=0
+export VALUE_RESIDUAL=0
 export LN_SCALE=1
 
 # Value Embedding
@@ -65,9 +65,9 @@ export VE_ENABLED=1
 export VE_DIM=128
 export VE_LAYERS="9,10"
 
-# Depth recurrence
-export DEPTH_RECUR_LAYERS="4,5"
-export DEPTH_RECUR_PASSES=2
+# Depth recurrence DISABLED
+export DEPTH_RECUR_LAYERS=""
+export DEPTH_RECUR_PASSES=1
 
 # QAT + warmdown
 export LATE_QAT_THRESHOLD=0.15
@@ -98,7 +98,7 @@ export GRAD_CLIP_NORM=0.3
 # torch.compile ON (H100 Hopper architecture)
 export TORCH_COMPILE=1
 
-# Legal TTT (test-time training on val set)
+# Legal TTT — set to 1 to enable after base BPB validated
 export TTT_ENABLED=1
 export TTT_LR=0.002
 export TTT_EPOCHS=3
@@ -111,7 +111,8 @@ export TTT_GRAD_CLIP=1.0
 # Logging
 export TRAIN_LOG_EVERY=200
 export VAL_LOSS_EVERY=2000
-export EVAL_STRIDE=64
+export EVAL_STRIDE=16         # Production: stride 16 for best BPB
+export EVAL_TEMPERATURE=0.90  # Temperature scaling for LeakyReLU²
 
 echo "Starting PRODUCTION training..."
 echo ""

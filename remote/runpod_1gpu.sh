@@ -34,16 +34,16 @@ export NUM_KV_HEADS=4
 export MLP_MULT=3
 
 # Input representations
-export BIGRAM_VOCAB_SIZE=4096
+export BIGRAM_VOCAB_SIZE=2048
 export BIGRAM_DIM=128
-export TRIGRAM_VOCAB_SIZE=4096
-export TRIGRAM_DIM=128
+# TrigramHash disabled (not used by any top submission, saves ~590K params)
+export TRIGRAM_VOCAB_SIZE=0
 
 # Attention features
 export XSA_LAST_N=4
 export ROPE_DIMS=16
-export GATED_ATTENTION=1
-export VALUE_RESIDUAL=1
+export GATED_ATTENTION=0  # Not used by SOTA
+export VALUE_RESIDUAL=0   # Not used by SOTA
 export LN_SCALE=1
 
 # Value Embedding
@@ -51,9 +51,9 @@ export VE_ENABLED=1
 export VE_DIM=128
 export VE_LAYERS="9,10"
 
-# Depth recurrence
-export DEPTH_RECUR_LAYERS="4,5"
-export DEPTH_RECUR_PASSES=2
+# Depth recurrence DISABLED (proven ineffective by 3 researchers, 250+ experiments)
+export DEPTH_RECUR_LAYERS=""
+export DEPTH_RECUR_PASSES=1
 
 # QAT + warmdown (adjusted for longer 1GPU run)
 export LATE_QAT_THRESHOLD=0.15
@@ -90,7 +90,8 @@ export TTT_ENABLED=0
 # Logging
 export TRAIN_LOG_EVERY=100
 export VAL_LOSS_EVERY=1000
-export EVAL_STRIDE=128
+export EVAL_STRIDE=64        # 64 for test, 16 for production
+export EVAL_TEMPERATURE=0.90  # Temperature scaling for LeakyReLU² (free -0.005 BPB)
 
 echo "Starting training..."
 echo ""

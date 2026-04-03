@@ -22,11 +22,11 @@ $env:MLP_MULT = "2"
 # Tiny n-gram tables
 $env:BIGRAM_VOCAB_SIZE = "512"
 $env:BIGRAM_DIM = "64"
-$env:TRIGRAM_VOCAB_SIZE = "512"
-$env:TRIGRAM_DIM = "64"
+$env:TRIGRAM_VOCAB_SIZE = "0"
 
 # Disable heavy features
 $env:DEPTH_RECUR_PASSES = "1"
+$env:DEPTH_RECUR_LAYERS = ""
 $env:TTT_ENABLED = "0"
 $env:GATED_ATTENTION = "0"
 $env:VALUE_RESIDUAL = "0"
@@ -37,6 +37,7 @@ $env:ROPE_DIMS = "0"
 $env:LN_SCALE = "0"
 $env:LATE_QAT_THRESHOLD = "0"
 $env:EVAL_STRIDE = "128"
+$env:EVAL_TEMPERATURE = "1.0"
 
 # New: bug-fix settings
 $env:LR_WARMUP_STEPS = "5"
@@ -61,7 +62,7 @@ Remove-Item Env:MASTER_PORT -ErrorAction SilentlyContinue
 Write-Host "=== Parameter Golf Smoke Test ===" -ForegroundColor Cyan
 Write-Host "GPU: RTX 3050 Ti (4GB VRAM)" -ForegroundColor Yellow
 Write-Host "Model: 4L/256d/4H (mini) - 30 steps" -ForegroundColor Yellow
-Write-Host "Fixes: LR warmup, EMA late start, no gas in eval" -ForegroundColor Yellow
+Write-Host "Fixes: LR warmup, EMA late start, lzma compression, no trigram" -ForegroundColor Yellow
 Write-Host ""
 
 python train_gpt.py

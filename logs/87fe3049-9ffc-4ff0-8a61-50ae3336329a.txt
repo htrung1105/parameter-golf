@@ -973,3 +973,33 @@ def main():
 
 if __name__=="__main__":
     main()
+
+================================================================================
+PyTorch 2.11.0+cu126
+params:2151185 ws:1 gas:8
+step:1/30 loss:6.9310 t:191ms avg:190.60ms
+step:2/30 loss:6.9307 t:359ms avg:179.34ms
+step:3/30 loss:6.7335 t:513ms avg:171.05ms
+step:4/30 loss:6.2976 t:673ms avg:168.14ms
+step:5/30 loss:5.9743 t:847ms avg:169.37ms
+step:6/30 loss:6.3713 t:1001ms avg:166.88ms
+step:7/30 loss:6.6707 t:1185ms avg:169.31ms
+step:8/30 loss:6.6531 t:1345ms avg:168.15ms
+step:9/30 loss:6.6358 t:1507ms avg:167.40ms
+step:10/30 loss:6.8133 t:1664ms avg:166.37ms
+step:15/30 loss:6.2096 t:2506ms avg:167.04ms
+step:20/30 loss:6.0270 t:3280ms avg:164.01ms
+step:25/30 loss:5.8232 t:4093ms avg:163.71ms
+step:30/30 loss:5.6501 t:4888ms avg:162.95ms
+step:30/30 val_loss:5.6273 val_bpb:3.3328 t:4889ms avg:162.97ms
+peak_mem:114MiB
+raw_model val_loss:5.6273 val_bpb:3.3328 t:288188ms
+post_ema val_loss:6.2164 val_bpb:3.6817 t:288820ms
+ema:worse, reverting to raw
+best_model:raw val_bpb:3.3328
+code:51972 model:2015412 total:2067384 limit:16000000 OK
+int6_roundtrip val_loss:5.6378 val_bpb:3.3390 t:288851ms
+int6_roundtrip_exact val_loss:5.63778170 val_bpb:3.33901188
+int6_zlib code:51972 model:2015412 total:2067384 limit:16000000 OK
+int8_zlib code:51972 model:2270924 total:2322896 limit:16000000 OK
+both fit, using int6 (smaller)
