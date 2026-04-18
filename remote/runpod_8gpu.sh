@@ -22,13 +22,6 @@ if [ "$GPU_COUNT" -lt 8 ]; then
 fi
 echo "GPUs detected: $GPU_COUNT"
 
-# Download all shards if needed
-if [ ! -f "data/datasets/fineweb10B_sp1024/fineweb_train_000079.bin" ]; then
-    echo "Downloading all 80 shards (~16GB, takes ~3 min on RunPod)..."
-    python data/cached_challenge_fineweb.py --variant sp1024 --train-shards 80
-fi
-echo ""
-
 # ===================== PRODUCTION CONFIG =====================
 export SEED=2024
 export ITERATIONS=12000

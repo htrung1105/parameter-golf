@@ -1,9 +1,8 @@
 #!/bin/bash
 # ============================================================
-# Parameter Golf — Test Run on 1×H100 SXM (RunPod)
-# Image: runpod/parameter-golf:latest
-# Expected: ~50-60 min training + ~5 min eval
-# Cost: ~$3.89 per run
+# Parameter Golf — Test Run on 1×H100 SXM
+# Image (Runpod): runpod/parameter-golf:latest
+# Expected: ~50-60 min training + ~10 min eval
 # ============================================================
 set -e
 
@@ -11,15 +10,15 @@ cd /workspace/parameter-golf 2>/dev/null || { echo "ERROR: /workspace/parameter-
 
 echo "======================================"
 echo " Parameter Golf — 1×H100 SXM"
-echo " Test Run (~1 hour)"
+echo " Test Run (7200 steps)"
 echo "======================================"
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 echo ""
 
 # Training config for 1x H100
-export SEED=42
-export ITERATIONS=20000          # high enough to not be the bottleneck
-export MAX_WALLCLOCK_SECONDS=600  # 10 min hard limit (matches competition)
+export SEED=2024
+export ITERATIONS=7200
+export MAX_WALLCLOCK_SECONDS=0
 
 # Full batch on H100: 786432 tokens, gas auto
 export TRAIN_BATCH_TOKENS=786432
@@ -57,7 +56,7 @@ export DEPTH_RECUR_PASSES=1
 
 # QAT + warmdown
 export LATE_QAT_THRESHOLD=0.15
-export WARMDOWN_ITERS=2500
+export WARMDOWN_ITERS=3500
 
 # Weight averaging
 export SWA_ENABLED=1
@@ -81,16 +80,23 @@ export MUON_WD=0.04
 export ADAM_WD=0.04
 export GRAD_CLIP_NORM=0.3
 
-# torch.compile ON (H100 Hopper)
+# torch.compile ON (H100 Hopper architecture)
 export TORCH_COMPILE=1
 
-# Disable TTT for test run
-export TTT_ENABLED=0
+# Legal TTT — set to 1 to enable after base BPB validated
+export TTT_ENABLED=1
+export TTT_LR=0.002
+export TTT_EPOCHS=3
+export TTT_CHUNK_TOKENS=32768
+export TTT_FREEZE_BLOCKS=0
+export TTT_MOMENTUM=0.9
+export TTT_BATCH_SEQS=32
+export TTT_GRAD_CLIP=1.0
 
 # Eval
 export TRAIN_LOG_EVERY=200
 export VAL_LOSS_EVERY=2000
-export EVAL_STRIDE=64          # 64 for test, 16 for production
+export EVAL_STRIDE=16          # 64 for test, 16 for production
 export EVAL_TEMPERATURE=0.90   # Temperature scaling
 
 echo "Starting training (1×H100)..."
@@ -117,7 +123,3 @@ if [ -f "final_model.int8.ptz" ]; then
         echo "❌ OVER 16MB LIMIT!"
     fi
 fi
-
-echo ""
-echo "⚠️  REMEMBER: Stop your RunPod pod to save credit!"
-echo "    runpodctl stop pod \$RUNPOD_POD_ID"

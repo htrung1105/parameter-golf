@@ -4,10 +4,10 @@
 
 | Setting | Giá trị |
 |---|---|
-| **GPU** | 1× RTX 4090 (54 cores, 135GB RAM) |
+| **GPU** | RTX 4090 |
 | **Framework** | PyTorch 2.9.1 (CUDA 12.8) |
-| **CPU** | 8 cores |
-| **RAM** | 32 GB |
+| **CPU** | 4 cores |
+| **RAM** | 24 GB |
 | **Storage** | 24 GB |
 | **SSH Password** | Đặt mật khẩu (ví dụ: `PgOlf2026!Xsa`) |
 | **SSH Username** | Để trống (mặc định `root`) |
@@ -76,9 +76,8 @@ python -c "import torch; print(torch.__version__, torch.cuda.get_device_name(0))
 # Upload train_gpt.py lên remote (thay HOST và PORT)
 scp -P PORT d:\Y3S2\parameter-golf\train_gpt.py root@HOST:/workspace/parameter-golf/train_gpt.py
 
-# Upload cả 2 script tiện ích
-scp -P PORT d:\Y3S2\parameter-golf\runpod_1gpu.sh root@HOST:/workspace/parameter-golf/
-scp -P PORT d:\Y3S2\parameter-golf\runpod_8gpu.sh root@HOST:/workspace/parameter-golf/
+# Upload script tiện ích
+scp -P PORT d:\Y3S2\parameter-golf\remote\runpod_rtx4090.sh root@HOST:/workspace/parameter-golf/
 ```
 
 ### Cách 2 — Copy-paste qua terminal:
@@ -98,25 +97,10 @@ ENDOFFILE
 cd /workspace/parameter-golf
 
 # Cấp quyền thực thi
-chmod +x runpod_1gpu.sh
+chmod +x runpod_rtx4090.sh
 
-# Chạy training (~15-20 phút trên 1x RTX 4090)
-bash runpod_1gpu.sh
-```
-
-### Hoặc chạy trực tiếp (không dùng script):
-
-```bash
-cd /workspace/parameter-golf
-
-SEED=42 ITERATIONS=3000 MAX_WALLCLOCK_SECONDS=420 \
-TRAIN_BATCH_TOKENS=98304 NUM_LAYERS=11 MODEL_DIM=512 \
-BIGRAM_VOCAB_SIZE=4096 TRIGRAM_VOCAB_SIZE=4096 \
-XSA_LAST_N=4 GATED_ATTENTION=1 VALUE_RESIDUAL=1 \
-DEPTH_RECUR_PASSES=2 LATE_QAT_THRESHOLD=0.15 \
-SWA_ENABLED=1 TORCH_COMPILE=1 TTT_ENABLED=0 \
-TRAIN_LOG_EVERY=100 VAL_LOSS_EVERY=1000 \
-torchrun --standalone --nproc_per_node=1 train_gpt.py
+# Chạy training
+bash runpod_rtx4090.sh
 ```
 
 ---
@@ -157,15 +141,6 @@ scp -P PORT root@HOST:/workspace/parameter-golf/logs/*.txt d:\Y3S2\parameter-gol
 
 ---
 
-## ⚠️ Lưu ý quan trọng
-
-1. **Đây là test run, KHÔNG phải submission** — BPB trên 1×4090 với 3K steps sẽ cao hơn nhiều so với production (1.12 target cần 8×H100 full 10 phút)
-2. **Mục đích**: Xác nhận code chạy end-to-end, serialization đúng, artifact ≤ 16MB
-3. **Sau khi test thành công**: Thuê 8×H100 SXM trên RunPod để chạy submission thật
-4. **Nhớ tắt container** sau khi xong để không bị charge thêm!
-
----
-
 ## Tổng hợp
 
 ```bash
@@ -194,20 +169,16 @@ bash remote_setup.sh 80   # Full dataset (80 shards, ~16GB)
 # PowerShell
 scp -P PORT .\train_gpt.py root@HOST:/workspace/parameter-golf/train_gpt.py
 
-scp -P PORT .\runpod_1gpu.sh root@HOST:/workspace/parameter-golf/runpod_1gpu.sh
-
-scp -P PORT .\runpod_2gpu.sh root@HOST:/workspace/parameter-golf/runpod_2gpu.sh
-
-scp -P PORT .\runpod_8gpu.sh root@HOST:/workspace/parameter-golf/runpod_8gpu.sh
+scp -P PORT .\runpod_rtx4090.sh root@HOST:/workspace/parameter-golf/runpod_rtx4090.sh
 ```
 
 ```bash
 # Remote
 cd parameter-golf
 
-chmod +x runpod_2gpu.sh
+chmod +x runpod_rtx4090.sh
 
-bash runpod_2gpu.sh
+bash runpod_rtx4090.sh
 
 # If disconnect
 tmux attach -t train

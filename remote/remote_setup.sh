@@ -14,6 +14,16 @@ echo ""
 echo "[1/5] Installing system dependencies..."
 apt-get update -qq
 
+if ! command -v pip &> /dev/null; then
+    apt-get install -y -qq python3-pip > /dev/null 2>&1
+    if command -v pip3 &> /dev/null && ! command -v pip &> /dev/null; then
+        ln -s $(which pip3) /usr/local/bin/pip
+    fi
+    echo "pip installed"
+else
+    echo "pip already available"
+fi
+
 if ! command -v gcc &> /dev/null; then
     apt-get install -y -qq gcc > /dev/null 2>&1
     echo "gcc installed"
@@ -33,6 +43,15 @@ if ! command -v tmux &> /dev/null; then
     echo "tmux installed (use to prevent SSH disconnect kills)"
 else
     echo "tmux already available"
+fi
+
+TORCH_VER=$(python -c "import torch; print(torch.__version__)" 2>/dev/null || echo "None")
+if [[ "$TORCH_VER" != *"2.9.1"* ]]; then
+    echo "PyTorch 2.9.1 not found (current: $TORCH_VER). Installing PyTorch 2.9.1+cu128..."
+    pip install torch==2.10.0 torchvision==0.25.0 torchaudio==2.10.0 --index-url https://download.pytorch.org/whl/cu128
+    echo "PyTorch 2.9.1 is already installed ($TORCH_VER)."
+else
+    echo "PyTorch 2.9.1 is already installed ($TORCH_VER)."
 fi
 
 # 2. System info
@@ -76,21 +95,21 @@ echo "[Final] Setup complete!"
 echo ""
 echo "Next: Upload train_gpt.py and run scripts"
 echo "  scp -P PORT train_gpt.py root@HOST:/workspace/parameter-golf/"
-echo "  scp -P PORT runpod_1gpu.sh root@HOST:/workspace/parameter-golf/"
-echo "  scp -P PORT runpod_2gpu.sh root@HOST:/workspace/parameter-golf/"
+echo "  scp -P PORT runpod_rtx4090.sh root@HOST:/workspace/parameter-golf/"
+echo "  scp -P PORT runpod_h100.sh root@HOST:/workspace/parameter-golf/"
 echo "  scp -P PORT runpod_8gpu.sh root@HOST:/workspace/parameter-golf/"
 echo ""
 echo "Usage:"
 echo "  cd parameter-golf"
 echo ""
-echo "  # -- Test train 1xGPU --"
-echo "  chmod +x runpod_1gpu.sh"
-echo "  bash runpod_1gpu.sh"
+echo "  # -- RTX 4090 (1 or 2 GPUs) --"
+echo "  chmod +x runpod_rtx4090.sh"
+echo "  bash runpod_rtx4090.sh"
 echo ""
-echo "  # -- Test train 2xGPU --"
-echo "  chmod +x runpod_2gpu.sh"
-echo "  bash runpod_2gpu.sh"
+echo "  # -- H100 (1 GPU) --"
+echo "  chmod +x runpod_h100.sh"
+echo "  bash runpod_h100.sh"
 echo ""
-echo "  # -- Full train --"
+echo "  # -- H100 (8x GPU Production) --"
 echo "  chmod +x runpod_8gpu.sh"
 echo "  bash runpod_8gpu.sh"

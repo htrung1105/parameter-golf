@@ -1,36 +1,33 @@
 #!/bin/bash
 # ============================================================
-# Parameter Golf — Test Run on 2×RTX 4090 (48GB total)
-# Expected: ~15-20 minutes, 2x faster per step than 1×GPU
+# Parameter Golf — Test Run on RTX 4090
+# Expected: 7200 steps (~160 minutes / 1 GPU, ~80 minutes / 2 GPUs)
 # ============================================================
 set -e
 
 cd /workspace/parameter-golf 2>/dev/null || cd ~/parameter-golf
 
+# Verify GPUs
+GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
+echo "GPUs detected: $GPU_COUNT"
+
 echo "=============================="
-echo " Parameter Golf — 2×RTX 4090"
-echo " Test Run (~15-20 min)"
+echo " Parameter Golf — $GPU_COUNT ×RTX 4090"
+echo " Test Run (7200 steps)"
 echo "=============================="
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 echo ""
 
-# Verify 2 GPUs
-GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
-if [ "$GPU_COUNT" -lt 2 ]; then
-    echo "WARNING: Expected 2 GPUs but found $GPU_COUNT. Falling back to 1GPU mode."
-    exec bash runpod_1gpu.sh
-fi
-echo "GPUs detected: $GPU_COUNT"
+# Training config for RTX 4090
+export SEED=2024
+export ITERATIONS=7200
+export MAX_WALLCLOCK_SECONDS=0
 
-# Training config for 2x RTX 4090
-export SEED=42
-export ITERATIONS=20000
-export MAX_WALLCLOCK_SECONDS=0  # non-avoid early_stop
-
-# 2× batch: gas=4 on 2GPU → micro-batch = 393216/(2×4) = 49152 tokens/GPU → ~16GB/GPU
-export TRAIN_BATCH_TOKENS=393216
+# Should fit 24GB VRAM
+# gas=8 on 1GPU → micro-batch = 196608/8 = 24576 tokens → ~15-18GB VRAM
+export TRAIN_BATCH_TOKENS=$(( 196608 * 2 * GPU_COUNT ))
 export TRAIN_SEQ_LEN=2048
-export VAL_BATCH_SIZE=1048576
+export VAL_BATCH_SIZE=$(( 524288 * 2 * GPU_COUNT ))
 export EVAL_SEQ_LEN=2048
 
 # Full model architecture
@@ -64,7 +61,7 @@ export DEPTH_RECUR_PASSES=1
 
 # QAT + warmdown
 export LATE_QAT_THRESHOLD=0.15
-export WARMDOWN_ITERS=1500
+export WARMDOWN_ITERS=3500
 
 # Weight averaging
 export SWA_ENABLED=1
@@ -82,7 +79,7 @@ export SCALAR_LR=0.025
 export TIED_EMBED_LR=0.035
 export MUON_MOMENTUM=0.99
 export MUON_MOMENTUM_WARMUP_START=0.92
-export MUON_MOMENTUM_WARMUP_STEPS=500
+export MUON_MOMENTUM_WARMUP_STEPS=1500
 export WARMUP_STEPS=10
 export MUON_WD=0.04
 export ADAM_WD=0.04
@@ -91,19 +88,26 @@ export GRAD_CLIP_NORM=0.3
 # torch.compile ON
 export TORCH_COMPILE=1
 
-# Disable TTT for speed
-export TTT_ENABLED=0
+# Legal TTT — set to 1 to enable after base BPB validated
+export TTT_ENABLED=1
+export TTT_LR=0.002
+export TTT_EPOCHS=3
+export TTT_CHUNK_TOKENS=32768
+export TTT_FREEZE_BLOCKS=0
+export TTT_MOMENTUM=0.9
+export TTT_BATCH_SEQS=32
+export TTT_GRAD_CLIP=1.0
 
 # Logging
-export TRAIN_LOG_EVERY=100
-export VAL_LOSS_EVERY=1000
-export EVAL_STRIDE=64
+export TRAIN_LOG_EVERY=200
+export VAL_LOSS_EVERY=2000
+export EVAL_STRIDE=16
 export EVAL_TEMPERATURE=0.90
 
-echo "Starting training (2×GPU)..."
+echo "Starting training ($GPU_COUNT×GPU)..."
 echo ""
 
-torchrun --standalone --nproc_per_node=2 train_gpt.py
+torchrun --standalone --nproc_per_node=$GPU_COUNT train_gpt.py
 
 echo ""
 echo "=============================="
